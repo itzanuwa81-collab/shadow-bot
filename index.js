@@ -51,6 +51,7 @@ let isStarting = false;
 
 async function startBot() {
   if (isStarting) return;
+
   isStarting = true;
 
   try {
@@ -66,6 +67,8 @@ async function startBot() {
 
     sock.ev.on("creds.update", saveCreds);
 
+    let pairingCodeRequested = false;
+
     sock.ev.on("connection.update", async (update) => {
       const {
         connection,
@@ -79,13 +82,18 @@ async function startBot() {
 
       if (connection === "open") {
         isStarting = false;
+        pairingCodeRequested = false;
+
         console.log("🟢 SHADOW BOT CONNECTED!");
       }
 
-      if (qr) {
+      if (qr && !pairingCodeRequested) {
+        pairingCodeRequested = true;
+
         try {
           if (!BOT_NUMBER) {
             console.log("❌ BOT_NUMBER is missing in .env");
+            pairingCodeRequested = false;
             return;
           }
 
@@ -99,7 +107,9 @@ async function startBot() {
           console.log(code);
           console.log("================================");
           console.log("");
+          console.log("📱 Enter this code in WhatsApp.");
         } catch {
+          pairingCodeRequested = false;
           console.log("❌ Unable to generate pairing code.");
         }
       }
@@ -119,7 +129,7 @@ async function startBot() {
 
         setTimeout(() => {
           startBot().catch(() => {});
-        }, 3000);
+        }, 5000);
       }
     });
 
@@ -145,7 +155,8 @@ async function startBot() {
         } else if (
           messageType === "extendedTextMessage"
         ) {
-          text = m.message.extendedTextMessage?.text || "";
+          text =
+            m.message.extendedTextMessage?.text || "";
         }
 
         if (!text) return;
@@ -170,7 +181,8 @@ async function startBot() {
           await command.execute(sock, m, args);
         } catch {
           await sock.sendMessage(remoteJid, {
-            text: "❌ Something went wrong. Please try again.",
+            text:
+              "❌ Something went wrong. Please try again.",
           });
         }
       } catch {
@@ -179,7 +191,10 @@ async function startBot() {
     });
   } catch {
     isStarting = false;
-    console.log("❌ Service is temporarily unavailable.");
+
+    console.log(
+      "❌ Service is temporarily unavailable."
+    );
 
     setTimeout(() => {
       startBot().catch(() => {});
@@ -195,4 +210,4 @@ process.on("unhandledRejection", () => {
   console.log("❌ Unexpected error occurred.");
 });
 
-startBot();
+startBot().catch(() => {});
